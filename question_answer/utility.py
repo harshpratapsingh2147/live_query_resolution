@@ -2,13 +2,13 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 from langchain.vectorstores import Chroma
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from functools import partial
 from decouple import config
-
+import chromadb
 persistent_directory = config('PERSISTENT_DIRECTORY')
 
 api_key = config('OPEN_AI_API_KEY')
@@ -54,22 +54,24 @@ def maxsim(query_embedding, document_embedding):
 def get_top_k_docs(query, class_id):
     top_k = 3
     scores = []
+    client = chromadb.HttpClient(host='172.29.0.2', port=8000)
 
     # Get the stored vector db
     embedding = OpenAIEmbeddings(api_key=api_key)
     vectordb = Chroma(
-        persist_directory=persistent_directory, embedding_function=embedding
+        client=client,
+        embedding_function=embedding,
     )
     # create a retriever from the vector database
     # retriever = vectordb.as_retriever(search_type="mmr",
     #                                   search_kwargs={"k": 6},
     #                                   filter={"source": "transcription.txt"})
     # relevant_docs = retriever.invoke(query)
+    print(BASE_TRANSCRIPT_PATH)
     relevant_docs = vectordb.max_marginal_relevance_search(query,
                                                            k=3,
                                                            filter={"source": f"{BASE_TRANSCRIPT_PATH}{class_id}_transcript.txt"})
-    print("persistent directory path...............")
-    print(persistent_directory)
+
     print("relevant docs are here...............................................")
     print(relevant_docs)
 
@@ -108,12 +110,12 @@ def question_answer(class_id, query):
 
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.3, openai_api_key=api_key)
 
-    template = """Use the following pieces of context to answer the question at the end.
-    If you don't know the answer, just say that you don't know, don't try to make up an answer.
+    template = """Use only the following pieces of context to answer the question at the end.
+    If the question cannot be answered using only the given context, just say that you don't know, don't try to make up an answer.
     If the context is empty, just say that you don't know, don't try to make up an answer.
     Always say "thanks for asking!" at the end of the answer.
 
-    context: {context}
+    {context}
 
     Question: {question}
 
