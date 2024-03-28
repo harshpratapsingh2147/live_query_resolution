@@ -11,13 +11,19 @@ class LiveQuestionAnswer(GenericAPIView):
     def get(self, request):
         class_id = request.GET.get('class_id')
         query = request.GET.get('query')
-
+        ask_expert = int(request.GET.get('ask_expert'))
         filter_serializer = self.validate_serializer_class(data=request.GET)
 
         if not filter_serializer.is_valid():
             return Response(filter_serializer.errors)
 
-        result = question_answer(class_id=class_id, query=query)
+        if ask_expert:
+            result = """We have notified out expert. 
+            Your query will be answered in 24 hours.
+            Thanks for asking!"""
+        else:
+            result = question_answer(class_id=class_id, query=query)
+
         res = {
             query: result
         }
